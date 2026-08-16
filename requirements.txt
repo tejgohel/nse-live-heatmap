@@ -1,0 +1,13 @@
+# NSE F&O Live Heatmap — dependencies
+#
+#   pip install -r requirements.txt
+#
+# No numpy/scipy: this project keeps no history and computes no indicators —
+# it draws live prices against the previous close, nothing more.
+
+requests>=2.31.0          # Dhan REST — quote snapshot + daily history
+urllib3>=2.0.0            # the pooled/retrying adapter in dhan_feed.session()
+websocket-client>=1.6.0   # the Dhan market feed
+pyotp>=2.9.0              # TOTP for auto_login
+pandas>=2.0.0             # reading the scrip master CSV
+flask>=3.0.0              # dashboard + SSE

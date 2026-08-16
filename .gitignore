@@ -1,0 +1,42 @@
+# ── Secrets — NEVER commit ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+access_token.txt
+*.token
+credentials.json
+secrets.*
+
+# ── Runtime artefacts (regenerated on every run) ─────────────────────────────
+scrip_master.csv
+security_id_list.csv
+candles_5min.db
+*.db
+*.db-shm
+*.db-wal
+_prevclose_*.json
+_universe.json
+_scripmaster.json
+_chartprofile/
+*.log
+logs/
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Tooling / IDE ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
