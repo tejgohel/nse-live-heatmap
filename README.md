@@ -4,7 +4,7 @@
 
 A treemap of the whole NSE derivatives universe — around 200 stocks — coloured by the day's move and sized by whatever you care about. It resolves the universe from the exchange's own instrument master, verifies the previous close before painting a single tile, and then streams ticks over a WebSocket so the map is live rather than polled.
 
-![NSE F&O heatmap, grouped by sector](docs/heatmap.png)
+![The NSE F&O universe grouped by sector](docs/heatmap-sectors.jpg)
 
 <p align="left">
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
@@ -45,6 +45,14 @@ A treemap of the whole NSE derivatives universe — around 200 stocks — colour
 | **Phone / other PC** | serves on the LAN automatically; optional ngrok tunnel for other networks |
 
 Tiles carry the symbol and change%, auto-fitted: the renderer sizes the text for one line and for two, then keeps whichever is bigger, so short names stay large and long ones stay readable instead of clipping.
+
+**Flat — the whole universe at once**
+
+![All 208 F&O stocks in one flat treemap](docs/heatmap-full.jpg)
+
+**Filtered to one sector**
+
+![Consumer durables only, tiles expanded to fill the screen](docs/heatmap-sector-filter.jpg)
 
 ---
 
