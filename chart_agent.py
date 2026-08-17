@@ -1,36 +1,36 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  chart_agent.py  —  DOST ke PC pe chalane wali chhoti file
+#  chart_agent.py  —  the small file that runs on the VIEWER's PC
 #
 #      python chart_agent.py
 #
-#  ── Ye kyun chahiye ────────────────────────────────────────────────────────
-#  Heatmap tumhare PC pe chalta hai; dost use LAN link se dekhta hai.  Jab wo
-#  kisi symbol pe click kare to chart USKI doosri screen pe, USKI Chrome
-#  profile me khulna chahiye.
+#  ── Why this is needed ─────────────────────────────────────────────────────
+#  The heatmap runs on your PC; someone else watches it over the LAN link. When
+#  they click a symbol, the chart has to open on THEIR second screen, in THEIR
+#  Chrome profile.
 #
-#  Wo server se ho hi nahi sakta.  chartwin.py Chrome ko SERVER ke desktop pe
-#  chalata hai — dost ke click pe window tumhari screen pe khulti, uski nahi.
-#  Aur koi bhi web page kisi doosre computer ka desktop chhoo nahi sakta; ye
-#  browser ki sabse buniyadi security line hai, koi trick isse nahi todti.
+#  The server simply cannot do that. chartwin.py launches Chrome on the SERVER's
+#  desktop — their click would open a window on your screen, not theirs. And no
+#  web page can touch another computer's desktop; that is one of the browser's
+#  most basic security lines, and no trick gets around it.
 #
-#  Isliye ye ek line ka kaam dost ke PC pe hota hai.  Baaki sab — universe,
-#  prev close, feed — tumhare PC pe hi rehta hai.  Ye file sirf itna karti
-#  hai: "is symbol ka chart kholo".
+#  So this one small job runs on their PC instead. Everything else — universe,
+#  previous close, the feed — stays on yours. All this file does is: "open the
+#  chart for this symbol".
 #
-#  ── Zaroorat ───────────────────────────────────────────────────────────────
-#  Sirf Python (koi pip install nahi — poori stdlib), aur DO file:
+#  ── What it needs ──────────────────────────────────────────────────────────
+#  Python only (no pip install — pure stdlib), and TWO files:
 #      chart_agent.py · chartwin.py
 #
-#  ⚠  config.py mat bhejna.  auto_login har login pe usme LIVE Dhan
-#     ACCESS_TOKEN likh deta hai, aur usme is machine ke paths bhi hain.
-#     Ye dono file usse bina chal jaati hain — chartwin config na mile to
-#     defaults use karta hai.  auto_login.py to bilkul mat bhejna: usme
-#     client id, PIN aur TOTP secret hai.
+#  ⚠  Do not send config.py. auto_login writes the LIVE Dhan ACCESS_TOKEN into
+#     it on every login, and it also holds this machine's paths. These two files
+#     run fine without it — chartwin falls back to defaults when config is
+#     missing. And never send auto_login.py at all: it holds the client id, the
+#     PIN and the TOTP secret.
 #
-#  ── Suraksha ───────────────────────────────────────────────────────────────
-#  127.0.0.1 pe hi bind hota hai, to network se koi ise chhoo nahi sakta —
-#  sirf usi PC ka browser.  Ye sirf TradingView ke chart URL kholta hai; symbol
-#  se URL yahin banta hai, bhejne wale ka diya URL kabhi nahi kholta.
+#  ── Safety ─────────────────────────────────────────────────────────────────
+#  It binds to 127.0.0.1 only, so nothing on the network can reach it — just the
+#  browser on that same PC. It opens TradingView chart URLs and nothing else:
+#  the URL is built here from the symbol, never taken from the caller.
 # ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/chart":
             sym = (q.get("symbol") or [""])[0].strip()
             if not _SYM_OK.match(sym):
-                self._send({"ok": False, "msg": "symbol theek nahi"}, 400)
+                self._send({"ok": False, "msg": "invalid symbol"}, 400)
                 return
             try:
                 ok, msg = chartwin.open_chart(sym, here=self._here(q))
@@ -126,18 +126,18 @@ def main() -> int:
     if len(mons) < 2:
         print("  ⚠  Ek hi monitor mila — chart normal tab me khulega.")
     ch = chartwin._chrome()
-    print(f"  Chrome   : {ch or 'NAHI MILA — config.py me CHROME_PATH set karo'}")
-    print(f"  Sun raha : http://127.0.0.1:{PORT}   (sirf isi PC se)")
+    print(f"  Chrome   : {ch or 'NOT FOUND — set CHROME_PATH in config.py'}")
+    print(f"  Listening: http://127.0.0.1:{PORT}   (this PC only)")
     print("=" * 66)
-    print("  Ab heatmap kholo aur '⧉ Chart 2nd screen' tick karo.")
+    print("  Now open the heatmap and tick '⧉ Chart 2nd screen'.")
     print("  Ise chalta chhod do.  Ctrl-C se band.\n")
     try:
         ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
     except KeyboardInterrupt:
         print("\n  Bye.\n")
     except OSError as e:
-        print(f"\n  ❌ Port {PORT} pe nahi baith paaya: {e}")
-        print(f"     Shayad agent pehle se chal raha hai.\n")
+        print(f"\n  ❌ Could not bind port {PORT}: {e}")
+        print(f"     An agent is probably already running.\n")
         return 1
     return 0
 

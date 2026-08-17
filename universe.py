@@ -101,7 +101,7 @@ def _download(retries: int = 3) -> bool:
                 f.write(r.content)
             rows = _validate(tmp)
             if rows is None:
-                print(f"  ⚠  Download aaya par CSV theek nahi lagi "
+                print(f"  ⚠  Download arrived but the CSV does not look right "
                       f"({os.path.getsize(tmp):,} bytes) — reject "
                       f"({attempt}/{retries})")
                 os.remove(tmp)
@@ -152,25 +152,24 @@ def _scrip_master(force_refresh: bool = False) -> str:
     got_on = _downloaded_on()
     if got_on == date.today() and not force_refresh:
         print(f"  📄 Scrip master aaj hi download ho chuki hai — "
-              f"dobara nahi kar raha")
+              f"not downloading again")
         return SCRIP_MASTER_PATH
 
     if got_on:
-        print(f"  📥 Scrip master {got_on} ki hai — naya download kar raha "
+        print(f"  📥 Scrip master is from {got_on} — downloading a fresh one "
               f"hoon (F&O list badalti rehti hai)...")
     else:
-        print("  📥 Dhan scrip master download kar raha hoon (F&O list)...")
+        print("  📥 Downloading the Dhan scrip master (F&O list)...")
     if _download():
         return SCRIP_MASTER_PATH
     if os.path.exists(SCRIP_MASTER_PATH):
-        print(f"  ↩  Download nahi hua — {got_on} wali scrip_master.csv use "
-              f"kar raha hoon.")
+        print(f"  ↩  Download failed — using the scrip_master.csv from {got_on}.")
         return SCRIP_MASTER_PATH
     for p in FALLBACK_PATHS:
         if os.path.exists(p):
             print(f"  ↩  Fallback: {p}")
             return p
-    raise FileNotFoundError("koi scrip master nahi mila")
+    raise FileNotFoundError("no scrip master found")
 
 
 def load(force_refresh: bool = False, quiet: bool = False) -> "list[dict]":
@@ -216,9 +215,9 @@ def load(force_refresh: bool = False, quiet: bool = False) -> "list[dict]":
             print(f"  ➖ NIKAL gaye ({len(changes['removed'])}): "
                   f"{', '.join(changes['removed'])}")
         if changes["first_run"]:
-            print(f"  (pehla run — agli baar se badlaav dikhenge)")
+            print(f"  (first run — changes will be shown from the next one)")
         elif not changes["added"] and not changes["removed"]:
-            print(f"  ✓ pichhle run se koi badlaav nahi")
+            print(f"  ✓ no change since the last run")
         print(f"{'═' * 64}\n")
     return resolved
 

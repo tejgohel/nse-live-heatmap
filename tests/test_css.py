@@ -1,15 +1,15 @@
 """
-Page ka CSS structurally valid hai ya nahi.
+Is the page's CSS structurally valid.
 
-Ye do baar chahiye pada: ek edit ne comment ke beech me text daal diya, comment
-jaldi band ho gaya, aur bache hue shabd bare CSS ban gaye.  Browser aise me
-chup rehta hai — parser garbage se ubarne ke liye AGLA RULE nigal jaata hai.
-Dono baar jo rule gaya wo dikhne wala tha (`.sect-box` jaisa), aur symptom
-"rang nahi dikh raha" tha, "CSS toota hai" nahi.
+This was needed twice: an edit dropped text into the middle of a comment, the
+comment closed early, and the words left over became bare CSS. A browser stays
+silent about that — to recover from garbage the parser swallows the NEXT RULE.
+Both times the rule it ate was a visible one (something like `.sect-box`), so
+the symptom was "the colour is missing", not "the CSS is broken".
 
-`/*` aur `*/` ginna kaafi nahi tha — dono baar count barabar tha.  Isliye ye
-comment hata kar dekhta hai ki bacha hua sab kuch sach me rule/declaration
-jaisa hai.
+Counting `/*` against `*/` was not enough — both times the counts matched. So
+this strips the comments and checks that everything left really does look like
+a rule or a declaration.
 
     python test_css.py
 """
@@ -76,13 +76,13 @@ def main() -> int:
             bad.append(f"rule missing: {m}")
 
     if bad:
-        print("\n  CSS TOOTA HUA:\n")
+        print("\n  CSS IS BROKEN:\n")
         for b in bad[:12]:
             print(f"    ✗ {b}")
         print()
         return 1
     print(f"\n  CSS OK — {len(css.splitlines())} lines, "
-          f"{css.count('/*')} comments, {len(must)} zaroori rules maujood\n")
+          f"{css.count('/*')} comments, all {len(must)} required rules present\n")
     return 0
 
 

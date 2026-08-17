@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  db_update.py  —  "kya 5-min DB latest hai?" aur nahi hai to update
+#  db_update.py  —  "is the 5-min DB current?" and if not, update it
 #
 #      python db_update.py            # check + update if stale
 #      python db_update.py --check    # sirf batao, kuch chalao mat
@@ -111,8 +111,8 @@ def status(now: "datetime | None" = None) -> dict:
 
 def report(now: "datetime | None" = None) -> dict:
     st = status(now)
-    mark = "⚠  PURANA" if st["stale"] else "✅ latest"
-    print(f"  🗄  5-min DB: newest {st['have']}  ·  chahiye {st['want']}  "
+    mark = "⚠  STALE" if st["stale"] else "✅ latest"
+    print(f"  🗄  5-min DB: newest {st['have']}  ·  wanted {st['want']}  "
           f"·  {mark}")
     return st
 
@@ -172,24 +172,24 @@ def adopt_updater_token() -> bool:
         with open(auto_login.TOKEN_FILE, "w", encoding="utf-8") as f:
             f.write(fresh)
     except Exception as e:
-        print(f"  ⚠  token save nahi hua: {e}")
+        print(f"  ⚠  token not saved: {e}")
         return False
-    print(f"  🔑 Updater ne abhi jo token banaya wahi le liya — dobara login "
-          f"nahi karna padega (Dhan 2 min me ek hi deta hai)")
+    print(f"  🔑 Reusing the token the updater just generated — no second login "
+          f"needed (Dhan issues one per two minutes)")
     return True
 
 
 def run_update() -> bool:
     """Run the configured updater script and report whether the DB moved."""
     if not UPDATE_SCRIPT:
-        print("  ℹ  FIVEMIN_UPDATER set nahi hai — 5-min DB refresh skip.")
+        print("  ℹ  FIVEMIN_UPDATER is not set — skipping the 5-min DB refresh.")
         return False
     path = os.path.abspath(UPDATE_SCRIPT)
     if not os.path.exists(path):
-        print(f"  ❌ nahi mila: {path}")
+        print(f"  ❌ not found: {path}")
         return False
     before = db_day()
-    print(f"\n  ▶  5-min candles Dhan se la raha hoon  ({UPDATE_SCRIPT})")
+    print(f"\n  ▶  Fetching 5-min candles from Dhan  ({UPDATE_SCRIPT})")
     print(f"  {'-' * 62}")
     t0 = time.time()
     #  cwd matters — that script resolves its DB and config relative to its own
@@ -260,16 +260,16 @@ def ensure(now: "datetime | None" = None, allow_update: bool = True) -> dict:
     if not st["stale"]:
         return st
     if not allow_update:
-        print(f"  ⏭  --no-update : purane data pe hi chal raha hoon")
+        print(f"  ⏭  --no-update : running on the existing data")
         return st
 
     left = _cooling_off(st["want"], now)
     if left is not None:
-        print(f"  ⏭  {RETRY_COOLDOWN_MIN - left + 1} minute pehle koshish ki "
-              f"thi, {st['want']} ka data tab nahi aaya tha — "
-              f"{left} min baad phir dekhunga.")
-        print(f"     (Dhan aaj ka data band hone ke turant baad nahi deta — "
-              f"10-Aug ko 16:40 pe aaya tha.)")
+        print(f"  ⏭  Tried {RETRY_COOLDOWN_MIN - left + 1} minutes ago and "
+              f"{st['want']} data was not there yet — "
+              f"checking again in {left} min.")
+        print(f"     (Dhan does not publish today's data right at the close — "
+              f"on 10 Aug it appeared at 16:40.)")
         return st
 
     ok = run_update()
@@ -282,11 +282,11 @@ def ensure(now: "datetime | None" = None, allow_update: bool = True) -> dict:
         #  you looking for a bug that is not one.
         soon = (now.hour * 60 + now.minute) < 17 * 60
         if soon and ok:
-            print(f"  ⏳ {st['want']} ka data Dhan pe abhi nahi aaya — "
+            print(f"  ⏳ {st['want']} data is not on Dhan yet — "
                   f"thodi der baad chalana (aam taur pe ~16:30-17:00).")
-            print(f"     Abhi {st['have']} ke data pe chal raha hoon.")
+            print(f"     Running on {st['have']} data for now.")
         else:
-            print(f"  ⚠  DB abhi bhi {st['have']} pe hai, chahiye tha "
+            print(f"  ⚠  DB is still at {st['have']}, wanted "
                   f"{st['want']} — prev close purane session ka rahega.")
             if not ok:
                 print(f"     update script fail hua.  Upar ka output dekho.")

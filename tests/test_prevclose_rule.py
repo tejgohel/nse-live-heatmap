@@ -1,8 +1,8 @@
 """
-prev_close ka source clock+calendar se tay hota hai — ye us rule ka test.
+prev_close's source is decided by the clock and the calendar; this tests that rule.
 
 Har case me do sawaal:
-  want       : kaunse session ka close chahiye
+  want       : which session's close is wanted
   use_quote  : quote ka ohlc.close us session ka hai ya aaj ka ban chuka
 
     python test_prevclose_rule.py
@@ -22,7 +22,7 @@ import prevclose
 CASES = [
     ("2026-08-11 09:05", "2026-08-10", True,  "Tue subah — Monday ka close"),
     ("2026-08-11 00:47", "2026-08-10", True,  "Tue raat 00:47 — YAHI wo run tha"),
-    ("2026-08-11 15:39", "2026-08-10", True,  "settle se 1 min pehle"),
+    ("2026-08-11 15:39", "2026-08-10", True,  "1 min before settle"),
     ("2026-08-11 15:41", "2026-08-10", False, "settle ke baad — quote aaj ka"),
     ("2026-08-11 20:00", "2026-08-10", False, "raat — quote aaj ka"),
     ("2026-08-10 19:47", "2026-08-07", False, "Mon shaam — quote Monday ka"),

@@ -1,19 +1,19 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  tunnel.py  —  public link, doosre network se dekhne ke liye
+#  tunnel.py  —  a public link, for viewing from another network
 #
-#  Copied from CRYPTO\tunnel.py — same approach, same ngrok binary.  LAN binding
-#  (0.0.0.0) sirf ek hi WiFi cover karta hai; ye kisi bhi network se kholta hai.
+#  Same approach and same ngrok binary as the author's other projects. Binding
+#  to the LAN (0.0.0.0) only covers one WiFi; this opens it from any network.
 #
-#  ngrok agent ko child process ki tarah chalata hai aur uske apne local API
-#  (127.0.0.1:4040) se public URL padh leta hai — koi pip package nahi chahiye.
+#  It runs the ngrok agent as a child process and reads the public URL from
+#  ngrok's own local API (127.0.0.1:4040) — no pip package required.
 #
-#  ⚠  Link PUBLIC hai.  Jiske paas URL hoga wo heatmap dekh lega.  Us page pe
-#     jaata kya hai: symbol, LTP, change%, day OHLC aur sector.  Na token, na
-#     credentials, na koi order.  Phir bhi link kisi ke saath share mat karna.
+#  ⚠  The link is PUBLIC. Anyone holding the URL can watch the heatmap. What
+#     reaches that page: symbol, LTP, change%, day OHLC and sector. No token,
+#     no credentials, no orders. Even so, do not share the link.
 #
-#  Free tier ka URL har restart pe badal jaata hai; main.py naya URL print karta
-#  hai.  Fixed URL chahiye to ngrok dashboard se ek static domain le lo aur
-#  config.NGROK_DOMAIN me daal do.
+#  On the free tier the URL changes on every restart; main.py prints the new
+#  one. If you want a fixed URL, take a static domain from the ngrok dashboard
+#  and put it in config.NGROK_DOMAIN.
 # ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
@@ -65,8 +65,8 @@ def start(port: int) -> "str | None":
 
     An agent that is ALREADY running is reused rather than starting a second —
     the free tier caps concurrent sessions, so a second one would just fail.
-    That also means starting the heatmap while CRYPTO's tunnel is up will hand
-    back CRYPTO's URL, pointing at CRYPTO's port.  The check below catches that
+    That also means starting the heatmap while another project's tunnel is up
+    back that project's URL, pointing at its port.  The check below catches it
     instead of printing a link to the wrong dashboard.
     """
     global _proc
@@ -74,16 +74,16 @@ def start(port: int) -> "str | None":
     existing = _public_url(timeout=1.5)
     if existing:
         if _tunnel_port(existing) not in (None, port):
-            print(f"        ⚠  ngrok pehle se chal raha hai par kisi aur port "
-                  f"pe ({_tunnel_port(existing)}), is heatmap pe nahi.")
-            print(f"           Usko band karo, ya heatmap ko usi port pe "
-                  f"chalao.  Public link skip kar raha hoon.")
+            print(f"        ⚠  ngrok is already running, but on a different port "
+                  f"({_tunnel_port(existing)}), not this heatmap's.")
+            print(f"           Stop it, or run the heatmap on that port. "
+                  f"Skipping the public link.")
             return None
         return existing
 
     exe = _resolve_binary()
     if not exe:
-        print("        ngrok nahi mila — config.py me NGROK_PATH set karo")
+        print("        ngrok not found — set NGROK_PATH in config.py")
         return None
 
     cmd = [exe, "http", str(port), "--log=stdout"]
@@ -94,15 +94,15 @@ def start(port: int) -> "str | None":
         _proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
                                  stderr=subprocess.DEVNULL)
     except Exception as e:
-        print(f"        ngrok start nahi hua: {e}")
+        print(f"        ngrok failed to start: {e}")
         return None
 
     atexit.register(stop)
 
     url = _public_url()
     if not url:
-        print("        ngrok chala par URL nahi mila — `ngrok config check` "
-              "chala ke dekho (authtoken set hai?)")
+        print("        ngrok started but no URL came back — try `ngrok config "
+              "check` (is the authtoken set?)")
     return url
 
 
@@ -141,9 +141,9 @@ if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else config.PORT
     print(f"\n  ngrok -> port {port} ...")
     u = start(port)
-    print(f"  {u or 'nahi bana'}\n")
+    print(f"  {u or 'not created'}\n")
     if u:
-        print("  Ctrl-C se band.")
+        print("  Ctrl-C to stop.")
         try:
             while True:
                 time.sleep(1)

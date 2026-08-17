@@ -142,19 +142,19 @@ def quote_gives_prev_session(day: "date | None" = None,
     day = day or nse_holidays.session_day(now.date())
     #  A session in the PAST has settled no matter what the clock says today.
     #  Without this, a Sunday-10:00 run would read the 10:00 against Friday's
-    #  session and answer "abhi settle nahi hua" — two days after it closed.
+    #  session and answer "not settled yet" — two days after it closed.
     if day < now.date():
         return False, f"{day} ka session khatam ho chuka — quote ka close USI " \
-                      f"din ka hai, uska pichhla nahi"
+                      f"day, not the one before it"
     if not nse_holidays.is_trading_day(day):
-        return True, f"{day} trading day nahi hai — quote ka close pichhle " \
+        return True, f"{day} is not a trading day — the quote close is the previous " \
                      f"session ka hi hai"
     mins = now.hour * 60 + now.minute
     if mins < SESSION_DONE_MIN:
-        return True, f"aaj ka session abhi settle nahi hua ({now:%H:%M} < " \
+        return True, f"today's session has not settled yet ({now:%H:%M} < " \
                      f"15:40) — quote ka close pichhle session ka hai"
     return False, f"aaj ka session settle ho chuka ({now:%H:%M} >= 15:40) — " \
-                  f"quote ka close AAJ ka ban chuka hai, use nahi kar sakte"
+                  f"the quote close is now TODAY's, so it cannot be used"
 
 
 def db_prev_close(sids: "list[str]", want: date) -> "dict[str, float]":
@@ -338,7 +338,7 @@ def _cross_check(cid: str, token: str, quotes: "dict[str, dict]",
             bad.append((sid, q, hist))
 
     if checked == 0:
-        print(f"  🔎 [{_now()}] cross-check: daily history abhi {want} pe nahi "
+        print(f"  🔎 [{_now()}] cross-check: daily history is not at {want} yet "
               f"pahunchi ({stale} sample purane din pe) — normal hai, quote "
               f"hi sahi hai")
         return
@@ -347,7 +347,7 @@ def _cross_check(cid: str, token: str, quotes: "dict[str, dict]",
               f"history se match ✓")
         return
     print(f"  ⚠  [{_now()}] cross-check: sirf {hits}/{checked} match — "
-          f"quote aur history alag keh rahe hain, dekh lo:")
+          f"quote and history disagree — worth a look:")
     for sid, q, h in bad[:4]:
         print(f"       {sid:<8} quote {q:<10} history {h}")
 
@@ -381,7 +381,7 @@ def load(stocks: "list[dict]", cid: str, token: str,
     want = expected_prev_day(day)
     sids = [s["security_id"] for s in stocks]
     path = _cache_path(day)
-    print(f"  📅 [{_now()}] prev close chahiye {want} ka "
+    print(f"  📅 [{_now()}] previous close wanted for {want} "
           f"(aaj {day}, {day.strftime('%a')})")
 
     cached: "dict[str, dict]" = {}
@@ -404,12 +404,12 @@ def load(stocks: "list[dict]", cid: str, token: str,
                       f"{have}/{len(sids)} stocks ({want} ka)")
             else:
                 print(f"  🗑  [{_now()}] cache {blob.get('_want')} / "
-                      f"{blob.get('_source')} ka hai, chahiye {want} / "
-                      f"{_source()} — phenk kar dobara nikaal raha hoon")
+                      f"is {blob.get('_source')}, wanted {want} / "
+                      f"{_source()} — discarding and resolving again")
         except Exception:
             cached = {}
 
-    print(f"  📊 [{_now()}] Snapshot le raha hoon ({len(sids)} stocks, "
+    print(f"  📊 [{_now()}] Taking a snapshot ({len(sids)} stocks, "
           f"1 request)...")
     quotes = bulk_quote(cid, token, sids)
     print(f"  📊 [{_now()}] {len(quotes)}/{len(sids)} stocks ka snapshot mila")
@@ -432,7 +432,7 @@ def load(stocks: "list[dict]", cid: str, token: str,
             out[sid]["source"] = "cache"
 
     if not missing:
-        print(f"  ✅ [{_now()}] prev close poora cache se aaya")
+        print(f"  ✅ [{_now()}] previous close came entirely from cache")
         return out
 
     #  ── THE decision, from the clock and the calendar ───────────────────────
@@ -446,13 +446,13 @@ def load(stocks: "list[dict]", cid: str, token: str,
             out[sid].update(prev_close=cl, prev_day=want.isoformat(),
                             source="5min-db")
         print(f"  🗄  [{_now()}] {len(got)}/{len(missing)} prev close 5-min DB "
-              f"se ({want} ka aakhri bar — 15:10, official close nahi)")
+              f"({want}'s last bar — 15:10, not the official close)")
         missing = [s for s in missing if not out[s]["prev_close"]]
         if not missing:
             _save_cache(path, out, want)
             return out
-        print(f"  ⚠  [{_now()}] {len(missing)} stocks DB me nahi mile — "
-              f"unke liye API se le raha hoon")
+        print(f"  ⚠  [{_now()}] {len(missing)} stocks not found in the DB — "
+              f"fetching those from the API")
 
     #  Not from sampling.  See quote_gives_prev_session().
     use_quote, why = quote_gives_prev_session(day)
@@ -476,7 +476,7 @@ def load(stocks: "list[dict]", cid: str, token: str,
         _cross_check(cid, token, quotes, missing, pacer, want)
     else:
         print(f"  🐢 [{_now()}] Daily history se {len(missing)} stocks ka prev "
-              f"close la raha hoon — thoda time lagega (rate limit)...")
+              f"close from the API — this takes a moment (rate limit)...")
         _fill_from_history(cid, token, missing, out, pacer, want)
 
     #  Still missing?  The 5-min DB has the right SESSION even when both APIs
@@ -490,10 +490,10 @@ def load(stocks: "list[dict]", cid: str, token: str,
                             source="5min-db")
         if got:
             print(f"  🗄  [{_now()}] {len(got)}/{len(gaps)} prev close 5-min DB "
-                  f"se (us din ka aakhri bar — 15:10, official close nahi)")
+                  f"(that day's last bar — 15:10, not the official close)")
     holes = sum(1 for s in sids if not out[s]["prev_close"])
     if holes:
-        print(f"  ⚠  [{_now()}] {holes} stocks ka prev close kahin se nahi "
+        print(f"  ⚠  [{_now()}] could not get a previous close for {holes} stocks "
               f"mila — wo grey rahenge")
 
     _save_cache(path, out, want)
@@ -551,7 +551,7 @@ def _save_cache(path: str, out: "dict[str, dict]", want: date) -> None:
         print(f"  💾 [{_now()}] {len(rows)} prev close cache me save "
               f"({want} ka)")
     except Exception as e:
-        print(f"  ⚠  cache save nahi hua: {e}")
+        print(f"  ⚠  cache not saved: {e}")
     #  Yesterday's cache is dead weight the moment today's exists.
     folder = os.path.dirname(path)
     keep = os.path.basename(path)

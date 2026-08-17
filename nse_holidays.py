@@ -55,19 +55,19 @@ def session_day(ref: date | None = None) -> date:
     The trading session whose prices are ON SCREEN right now — today if today
     trades, else the last session that did.
 
-    ── Kyun ye alag function hai ───────────────────────────────────────────────
-    `date.today()` aur "jo session dikh raha hai" ek hi cheez sirf trading day
-    pe hote hain.  Shanivaar/Itwaar ko Dhan ka quote SHUKRAVAAR ka close deta
-    hai, to page pe session Friday ka hai — chahe calendar Sunday bole.
+    ── Why this is its own function ────────────────────────────────────────────
+    `date.today()` and "the session on screen" are the same thing only on a
+    trading day. On a Saturday or Sunday, Dhan's quote returns FRIDAY's close,
+    so the session on the page is Friday — whatever the calendar says.
 
-    Ye farak chhupa hua hai aur exactly isi tarah tootta hai: 2026-08-16
-    (Itwaar) ko `expected_prev_day()` ne `last_trading_day(Sunday)` = FRIDAY
-    diya, aur LTP bhi Friday ka tha.  Friday minus Friday = 0, to poora heatmap
-    +0.00% ho gaya.  Screen pe kuch bhi galat nahi lagta — bas sab flat.
+    That difference hides well and breaks in exactly one way: on 2026-08-16 (a
+    Sunday) `expected_prev_day()` returned `last_trading_day(Sunday)` = FRIDAY,
+    and the LTP was Friday's too. Friday minus Friday = 0, so the entire heatmap
+    read +0.00%. Nothing looks wrong on screen — it is just uniformly flat.
 
-    Isliye jahan bhi "aaj" ka matlab "jo session dikh raha hai" ho, wahan
-    date.today() nahi, YE use hota hai.  Jahan matlab sach me calendar din ho
-    (cache ki umar, "aaj download kiya kya"), wahan date.today() hi sahi hai.
+    So wherever "today" means "the session being shown", THIS is used rather
+    than date.today(). Where it genuinely means a calendar day (cache age, "was
+    this downloaded today"), date.today() is the correct one.
     """
     d = ref or date.today()
     return d if is_trading_day(d) else last_trading_day(d)

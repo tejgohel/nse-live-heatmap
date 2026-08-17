@@ -1,36 +1,37 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  chartwin.py  —  saare chart EK doosri-screen wali Chrome window me, naye tab
+#  chartwin.py  —  every chart as a new tab in ONE Chrome window on the
+#                  second screen
 #
-#  Kya chahiye tha: total DO Chrome window — ek screen pe heatmap, doosri screen
-#  pe ek hi Chrome jisme har chart NAYE TAB me khule.
+#  The goal: exactly TWO Chrome windows — the heatmap on one screen, and on the
+#  other screen a single Chrome in which every chart opens as a NEW TAB.
 #
-#  ── Browser ke andar se ye ho hi nahi sakta ─────────────────────────────────
-#  `window.open(url, name, "left=..,top=..")` — koi bhi window feature dete hi
-#  Chrome POPUP window banata hai, jisme tab strip hota hi nahi.  Us popup se
-#  `_blank` kholo to Chrome naya popup ya kisi aur window me tab kholta hai, us
-#  popup me nahi.  To "positioned window jisme tabs add hon" JS se possible
-#  nahi hai.  Isliye ye kaam server karta hai.
+#  ── Why the browser cannot do this ──────────────────────────────────────────
+#  `window.open(url, name, "left=..,top=..")` — the moment you pass any window
+#  feature, Chrome makes a POPUP window, and a popup has no tab strip. Open
+#  `_blank` from that popup and Chrome puts the tab in a new popup or in some
+#  other window, never in the popup itself. So "a positioned window you can add
+#  tabs to" is simply not reachable from JavaScript. Hence the server does it.
 #
-#  ── Jo asal me kaam karta hai ───────────────────────────────────────────────
-#  Chrome ka apna behaviour: ek ALAG `--user-data-dir` (profile) ke saath chalao
-#  to wo apni alag window kholta hai.  Us profile ke saath dobara chalao to wo
-#  chalti hui window me NAYA TAB kholta hai — bilkul wahi jo chahiye.
+#  ── What actually works ─────────────────────────────────────────────────────
+#  Chrome's own behaviour: launch it with a SEPARATE `--user-data-dir` (profile)
+#  and it opens a window of its own. Launch it again with that same profile and
+#  it opens a NEW TAB in the window already running — exactly what was wanted.
 #
-#      pehli baar : chrome --user-data-dir=<profile> --window-position=X,Y <url>
-#      har baar   : chrome --user-data-dir=<profile> <url>      -> naya tab
+#      first time : chrome --user-data-dir=<profile> --window-position=X,Y <url>
+#      every time : chrome --user-data-dir=<profile> <url>      -> new tab
 #
-#  ── Doosri screen kahan hai ─────────────────────────────────────────────────
-#  Windows se seedha poocha jaata hai (EnumDisplayMonitors), koi guess nahi.
-#  Ye zaroori tha: is machine pe doosra monitor UPAR hai (top = -1350), right me
-#  nahi.  Browser-side ka "screen ke right edge ke aage" wala andaaza yahan
-#  x=1920 nikaalta tha jahan koi screen hai hi nahi, aur Chrome window ko wapas
-#  primary screen pe khheench leta tha — user ko wahi "usi screen pe khul raha
-#  hai" dikhta tha.
+#  ── Finding the second screen ───────────────────────────────────────────────
+#  Windows is asked directly (EnumDisplayMonitors); nothing is guessed. That
+#  mattered: on this machine the second monitor sits ABOVE (top = -1350), not to
+#  the right. The browser-side guess of "just past the right edge of the screen"
+#  produced x=1920, where no screen exists, so Chrome pulled the window back
+#  onto the primary display — which looked to the user exactly like "it keeps
+#  opening on the same screen".
 #
-#  ── Ek seemaa ──────────────────────────────────────────────────────────────
-#  Browser aur server EK HI machine pe hone chahiye.  LAN ya ngrok se dekhne
-#  wale ke liye ye chalega nahi (window is machine pe khulegi), isliye frontend
-#  wahan normal tab wala rasta use karta hai.
+#  ── One limitation ─────────────────────────────────────────────────────────
+#  The browser and the server have to be on the SAME machine. For anyone viewing
+#  over the LAN or through ngrok this cannot work (the window would open on the
+#  server's machine), so the frontend falls back to an ordinary tab for them.
 # ─────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
@@ -64,22 +65,22 @@ except Exception:                                        # standalone agent
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
-#  ── Kaunsi Chrome profile ───────────────────────────────────────────────────
+#  ── Which Chrome profile ────────────────────────────────────────────────────
 #  config.CHART_PROFILE:
-#    "same"     (default) teri normal Chrome profile — TradingView ka login,
-#               bookmarks, chart layouts sab wahi.
-#    "separate" alag profile (neeche wali dir).  Deterministic hai par ekdam
-#               khaali — TradingView me dobara login karna padega.
+#    "same"     (default) your normal Chrome profile — TradingView login,
+#               bookmarks and chart layouts all carry over.
+#    "separate" its own profile (the directory below). Deterministic, but
+#               completely empty — you have to log in to TradingView again.
 #
-#  "same" me ek constraint hai jise sambhalna padta hai: ek user-data-dir ka
-#  ek hi Chrome instance chalta hai, aur `chrome <url>` us instance ki LAST
-#  ACTIVE window me tab kholta hai.  Command line se "is window me kholo" bola
-#  hi nahi ja sakta.  Isliye URL bhejne se pehle chart window ko foreground
-#  kiya jaata hai — tab wahin girta hai.
+#  "same" comes with a constraint that has to be worked around: one Chrome
+#  instance per user-data-dir, and `chrome <url>` opens the tab in that
+#  instance's LAST ACTIVE window. There is no command line for "open it in
+#  THIS window". So the chart window is brought to the foreground before the
+#  URL is sent — and the tab lands there.
 PROFILE_DIR = os.path.join(_HERE, "_chartprofile")
 
 _lock = threading.Lock()
-#  Chart window ka handle.  Yahi "kahan tab kholna hai" ka jawaab hai.
+#  Handle of the chart window. This is the answer to "where does the tab go".
 _chart_hwnd = None
 
 
@@ -96,7 +97,7 @@ class _MONITORINFO(ctypes.Structure):
 
 
 def monitors() -> "list[dict]":
-    """Every monitor's WORK area (taskbar hataake), Windows ke hisaab se."""
+    """Every monitor's WORK area (taskbar excluded), as Windows reports it."""
     if not sys.platform.startswith("win"):
         return []
     user32 = ctypes.windll.user32
@@ -314,17 +315,18 @@ def _contains(mon: dict, x: int, y: int) -> bool:
 
 def chart_monitor(here: "tuple | None" = None) -> "dict | None":
     """
-    Jis monitor pe chart window jaani chahiye.
+    The monitor the chart window should go to.
 
-    `here` = (x, y) jahan HEATMAP ki window hai (page khud batata hai).  Uske
-    hisaab se wo monitor chuna jaata hai jispe heatmap NAHI hai.
+    `here` = (x, y) of the HEATMAP window (the page reports its own position).
+    The monitor chosen is the one the heatmap is NOT on.
 
-    Pehle ye "jo primary nahi hai" chunta tha — jo sirf tab sahi hai jab
-    heatmap primary pe ho.  Kisi dost ke setup me heatmap secondary pe ho to
-    chart usi screen pe khul jaata, jo poori baat hi khatam kar deta hai.
+    This used to pick "whichever is not primary", which is only correct while
+    the heatmap happens to be on the primary. On a setup where the heatmap sits
+    on the secondary, the chart opened on that same screen — defeating the
+    whole point.
 
-    config.CHART_MONITOR se index pin bhi kar sakte ho.  Ek hi monitor ho to
-    None — caller normal tab khol dega.
+    config.CHART_MONITOR can pin an index instead. With only one monitor this
+    returns None and the caller falls back to an ordinary tab.
     """
     mons = monitors()
     if len(mons) < 2:
@@ -342,10 +344,10 @@ def chart_monitor(here: "tuple | None" = None) -> "dict | None":
     return mons[-1]
 
 
-# ── Kaunsi Chrome profile me heatmap khula hai ───────────────────────────────
+# ── Which Chrome profile the heatmap is open in ──────────────────────────────
 
 def _cmdline(pid: int) -> str:
-    """Us process ki poori command line."""
+    """That process's full command line."""
     try:
         out = subprocess.run(
             ["wmic", "process", "where", f"ProcessId={pid}",
@@ -445,7 +447,7 @@ def _chrome() -> "str | None":
 
 
 def tv_url(symbol: str, interval: str = "5") -> str:
-    """TradingView NSE ticker — '-' aur '&' underscore ban jaate hain."""
+    """TradingView NSE ticker — '-' and '&' become underscores."""
     tv = "NSE:" + str(symbol or "").replace("-", "_").replace("&", "_")
     from urllib.parse import quote
     return (f"https://www.tradingview.com/chart/?symbol={quote(tv)}"
@@ -466,19 +468,19 @@ def _spawn(cmd: list) -> bool:
 def open_chart(symbol: str, interval: str = "5",
                here: "tuple | None" = None) -> "tuple[bool, str]":
     """
-    `symbol` ka chart doosri screen wali Chrome window me NAYE TAB me kholo.
+    Open `symbol`'s chart as a NEW TAB in the second-screen Chrome window.
 
-    `here` = (x, y) jahan heatmap ki window hai.  Usse do cheezein tay hoti
-    hain — kaunsa monitor (jispe heatmap NAHI hai) aur kaunsi Chrome profile
-    (jisme heatmap khula hai).  Isi wajah se ye kisi bhi machine pe bina
-    configure kiye chalta hai.
+    `here` = (x, y) of the heatmap window. Two things follow from it — which
+    monitor (the one the heatmap is NOT on) and which Chrome profile (the one
+    the heatmap is open in). That is why this works on any machine with no
+    configuration.
     """
     exe = _chrome()
     if not exe:
-        return False, "Chrome nahi mila — config.CHROME_PATH set karo"
+        return False, "Chrome not found — set config.CHROME_PATH"
     mon = chart_monitor(here)
     if mon is None:
-        return False, "sirf ek monitor dikh raha hai"
+        return False, "only one monitor detected"
 
     url = tv_url(symbol, interval)
     separate = str(getattr(config, "CHART_PROFILE", "same")).lower() == "separate"
@@ -502,13 +504,13 @@ def open_chart(symbol: str, interval: str = "5",
             _focus(_chart_hwnd)
             time.sleep(0.15)
             if not _spawn([exe] + prof + [url]):
-                return False, "Chrome start nahi hua"
-            return True, "naya tab khula"
+                return False, "Chrome did not start"
+            return True, "opened a new tab"
 
         #  No window yet (first click, or the user closed it).
         before = {h for h, *_ in _chrome_windows()}
         if not _spawn([exe] + prof + ["--new-window", url]):
-            return False, "Chrome start nahi hua"
+            return False, "Chrome did not start"
 
     def _settle():
         global _chart_hwnd
@@ -522,7 +524,7 @@ def open_chart(symbol: str, interval: str = "5",
     #  Off the request thread: Chrome takes a second or two to create the
     #  window, and a click should not wait on that.
     threading.Thread(target=_settle, daemon=True).start()
-    return True, (f"chart window khul rahi hai — {mon['width']}x{mon['height']}"
+    return True, (f"opening the chart window — {mon['width']}x{mon['height']}"
                   f" @ {mon['left']},{mon['top']}, maximized"
                   + ("  (alag profile)" if separate else "  (teri profile)"))
 

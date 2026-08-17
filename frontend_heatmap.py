@@ -90,10 +90,10 @@ def api_chart():
     from flask import request
     symbol = (request.args.get("symbol") or "").strip()
     if not symbol:
-        return jsonify({"ok": False, "msg": "symbol chahiye"}), 400
+        return jsonify({"ok": False, "msg": "symbol required"}), 400
     if request.remote_addr not in ("127.0.0.1", "::1", "localhost"):
         return jsonify({"ok": False, "remote": True,
-                        "msg": "doosre device se — normal tab khulega"}), 200
+                        "msg": "opened from another device — will use a normal tab"}), 200
     try:
         import chartwin
         ok, msg = chartwin.open_chart(symbol, here=_here(request))
@@ -332,8 +332,8 @@ _HTML = r"""<!doctype html><html><head><meta charset="utf-8">
   <option value="turnover">Size: Turnover</option>
   <option value="move">Size: Move</option>
  </select>
- <label class="pill chk" title="Stocks ko sector ke blocks me baanto — har block
-pe uska naam aur kitne stocks hain.">
+ <label class="pill chk" title="Group the stocks into sector blocks — each block
+is labelled with its name and how many stocks it holds.">
   <input type="checkbox" id="group"> Sector wise
  </label>
  <label class="pill chk" id="twoscr-lbl" title="Chart doosri screen pe, ek hi
@@ -594,7 +594,7 @@ function render(){
   const empty = document.getElementById('empty');
   if(!list.length){
     empty.classList.add('on');
-    empty.textContent = 'Is filter pe koi stock nahi.';
+    empty.textContent = 'No stocks match this filter.';
   } else {
     empty.classList.remove('on');
   }
@@ -816,12 +816,12 @@ function tvSymbol(sym){ return 'NSE:' + String(sym||'').replace(/[-&]/g, '_'); }
 /* ── Two-screen mode ──────────────────────────────────────────────────────
    Heatmap ek screen pe, chart doosri pe — ek hi Chrome, har chart naye tab me.
 
-   Ye kaam SERVER karta hai, browser nahi, aur uski wajah hai: `window.open` ko
-   koi bhi feature (left/top/width) do to Chrome POPUP banata hai, aur popup me
-   tab strip hota hi nahi.  To "positioned window jisme naye tab khulen" JS se
-   ban hi nahi sakta.  chartwin.py Chrome ko seedha chalata hai — ek alag
-   --user-data-dir, jiski wajah se har agli call usi window me NAYA TAB kholti
-   hai.  Monitor ka position Windows se aata hai, andaaze se nahi. */
+   The SERVER does this, not the browser, and here is why: pass `window.open`
+   any feature at all (left/top/width) and Chrome makes a POPUP, and a popup has
+   no tab strip. So "a positioned window that new tabs open into" cannot be
+   built from JavaScript. chartwin.py launches Chrome directly with its own
+   --user-data-dir, which is what makes every later call open a NEW TAB in that
+   same window. The monitor position comes from Windows, not from a guess. */
 let screenInfo = null;
 
 function note(txt, tip){
@@ -838,18 +838,18 @@ function whereAmI(){
          '&sy=' + Math.round(window.screenY + 40);
 }
 
-/*  Kaun chart kholega.
+/*  Who opens the chart.
 
-    Server sirf APNE desktop pe Chrome chala sakta hai.  Jab page kisi doosre
-    PC se khula ho, wahan chart kholne ka ek hi tarika hai — us PC pe ek chhoti
-    file (`chart_agent.py`) chale, jo 127.0.0.1 pe sunti hai.  Page usse baat
-    kar leta hai; koi bhi web page kisi doosre computer ka desktop chhoo nahi
-    sakta, aur ye browser ki buniyadi security line hai.
+    The server can only launch Chrome on ITS OWN desktop. When the page is open
+    from another PC, there is exactly one way to open a chart there — a small
+    file (`chart_agent.py`) running on that PC, listening on 127.0.0.1. The page
+    talks to it; no web page can touch another computer's desktop, and that is
+    one of the browser's most basic security lines.
 
-    Isliye teen raaste, isi kram me:
-      1. page localhost se hai   -> server khud khole (/api/chart)
-      2. warna local agent chale -> wo khole
-      3. warna                   -> normal naya tab                             */
+    Hence three routes, in this order:
+      1. page served from localhost -> the server opens it (/api/chart)
+      2. else a local agent running -> the agent opens it
+      3. else                       -> an ordinary new tab                      */
 const AGENT = 'http://127.0.0.1:__AGENTPORT__';
 const isLocalPage = ['localhost', '127.0.0.1', '::1'].indexOf(location.hostname) >= 0;
 let useAgent = false;
@@ -863,37 +863,37 @@ function enableTwoScreen(){
     useAgent = !!d.agent;
     if(!isLocalPage && !d.agent){ throw new Error('no agent'); }
     if(isLocalPage && !d.local){
-      note('(remote — nahi chalega)',
-           'Ye page doosre device se khula hai aur is PC pe agent nahi chal '
-           + 'raha. `python chart_agent.py` chalao.');
+      note('(remote — unavailable)',
+           'This page is open from another device and no agent is running on '
+           + 'this PC. Run `python chart_agent.py`.');
       return;
     }
     if(!d.chrome){
-      note('(Chrome nahi mila)', 'config.py me CHROME_PATH set karo.');
+      note('(Chrome not found)', 'Set CHROME_PATH in config.py.');
       return;
     }
     if(!d.target){
       note('(sirf ' + d.count + ' monitor)',
-           'Windows ko ek hi display dikh rahi hai. Doosra monitor "Extend" '
-           + 'mode me hona chahiye (Duplicate me ek hi ginti hai).');
+           'Windows only reports one display. The second monitor has to be in '
+           + '"Extend" mode (Duplicate counts as one).');
       return;
     }
     const t = d.target;
     const p = (d.profile && d.profile.length)
         ? '  profile: ' + d.profile.join(' ') : '  profile: default';
     note('(2nd screen ✓)',
-         'Chart yahan khulega: ' + t.width + '×' + t.height +
+         'Charts open here: ' + t.width + '×' + t.height +
          ' @ x=' + t.left + ' y=' + t.top + p +
-         '  —  har chart naye tab me, ek hi Chrome window me.');
+         '  —  each chart a new tab, all in one Chrome window.');
   }).catch(function(){
     if(isLocalPage){
-      note('(check fail)', 'Server se screen info nahi mili.');
+      note('(check failed)', 'No screen info came back from the server.');
     } else {
-      note('(agent chalao)',
-           'Is PC pe chart agent nahi chal raha. HEATMAP folder ki teen file '
-           + '(chart_agent.py, chartwin.py, config.py) le kar yahan '
-           + '`python chart_agent.py` chalao — phir chart is PC ki doosri '
-           + 'screen pe khulega. Tab tak normal tab me khulega.');
+      note('(run the agent)',
+           'No chart agent is running on this PC. Copy three files from the '
+           + 'HEATMAP folder (chart_agent.py, chartwin.py, config.py) here and '
+           + 'run `python chart_agent.py` — charts will then open on this '
+           + 'PC\'s second screen. Until then they open in a normal tab.');
     }
   });
 }
@@ -915,7 +915,7 @@ function openChart(r){
       if(d.ok){ note('(2nd screen ✓)', d.msg); return; }
       //  One monitor, Chrome missing, or the wrong machine — say why, and
       //  still show the chart the ordinary way rather than doing nothing.
-      note('(' + (d.remote ? 'remote' : 'nahi ho paaya') + ')', d.msg || '');
+      note('(' + (d.remote ? 'remote' : 'failed') + ')', d.msg || '');
       window.open(url, '_blank', 'noopener');
     })
     .catch(function(){ window.open(url, '_blank', 'noopener'); });

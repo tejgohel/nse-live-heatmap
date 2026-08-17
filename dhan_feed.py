@@ -152,7 +152,7 @@ def _persist_token(cfg: dict, auto, token: str) -> str:
     #  Deliberately NOT written into config.py: that file is tracked by git,
     #  and a token committed once is a token leaked forever. The cache file
     #  above is git-ignored, which is where a secret belongs.
-    return ", ".join(where) if where else "kahin nahi (save fail)"
+    return ", ".join(where) if where else "nowhere (save failed)"
 
 
 def _lasts_the_session(auto, token: str) -> bool:
@@ -205,10 +205,10 @@ def get_token(account: str = None, force_new: bool = False) -> "tuple[str, str]"
         cfg = dict(cfg, client_id=real_id)
     elif real_id != cfg["client_id"]:
         print(f"  ⚠  {account}: ACCOUNTS says {cfg['client_id']} but "
-              f".env says {real_id} — .env use kar raha hoon.")
+              f".env says {real_id} — going with .env.")
         cfg = dict(cfg, client_id=real_id)
     if not cfg["client_id"]:
-        print(f"  ❌ {account}: koi client id nahi mila — "
+        print(f"  ❌ {account}: no client id found — "
               f".env me DHAN_CLIENT_ID bharo (config.py dekho).")
         return "", ""
 
@@ -216,12 +216,12 @@ def get_token(account: str = None, force_new: bool = False) -> "tuple[str, str]"
         token = _stored_token(cfg)
         if _lasts_the_session(auto, token):
             print(f"  🔑 {account} ({cfg['client_id']}) — stored token 15:30 "
-                  f"tak valid hai, login ki zaroorat nahi")
+                  f"— no login needed")
             return cfg["client_id"], token
         if token and auto.is_token_valid(token):
-            print(f"  ⚠  {account} ({cfg['client_id']}) — stored token abhi to "
-                  f"valid hai par 15:30 se pehle mar jayega, naya bana raha "
-                  f"hoon (warna feed beech session me girta)")
+            print(f"  ⚠  {account} ({cfg['client_id']}) — stored token is valid now "
+                  f"but dies before 15:30, generating a fresh one "
+                  f"(otherwise the feed drops mid-session)")
 
     #  Two things make a single attempt unreliable and both clear on a retry:
     #  auth.dhan.co resets the odd TLS connection on this machine, and a TOTP
@@ -236,37 +236,37 @@ def get_token(account: str = None, force_new: bool = False) -> "tuple[str, str]"
             print(f"     saved -> {saved}")
             return cfg["client_id"], fresh
         if i < LOGIN_ATTEMPTS:
-            print(f"  ⚠  attempt {i} fail — {LOGIN_RETRY_WAIT}s ruk raha hoon "
-                  f"(Dhan 2 minute me ek hi token deta hai, jaldi retry karne "
-                  f"se ulta band ho jaata hai)")
+            print(f"  ⚠  attempt {i} failed — waiting {LOGIN_RETRY_WAIT}s "
+                  f"(Dhan issues one token per two minutes; retrying sooner "
+                  f"gets you shut out instead)")
             time.sleep(LOGIN_RETRY_WAIT)
 
     #  Everything failed.  Fall back to the token on disk, but ONLY if it lasts
     #  through the session — one that dies at 11:00 would let the page start and
     #  then go stale mid-morning, which is worse than not starting.
-    print(f"  ❌ TOKEN NAHI BANA — {LOGIN_ATTEMPTS} attempts fail")
+    print(f"  ❌ NO TOKEN GENERATED — {LOGIN_ATTEMPTS} attempts failed")
     #  force_new means the caller ALREADY proved the stored token is dead —
     #  ensure_feed only sets it after Dhan answered 808 "invalid/superseded".
     #  Handing that same token back is guaranteed useless, and it read as a
-    #  recovery ("purana token 15:30 tak valid hai") while the run then failed
+    #  recovery ("the old token is valid till 15:30") while the run then failed
     #  on the very next check.  is_token_valid cannot see this: it reads the
     #  JWT's own expiry, and a superseded token's expiry is still in the future.
     if force_new:
-        print(f"  ⚠  Purana token pehle hi reject ho chuka hai (superseded), "
-              f"wapas nahi de raha — naya token hi chalega.")
+        print(f"  ⚠  The old token has already been rejected (superseded), "
+              f"so it is not offered back — only a fresh one will work.")
         return cfg["client_id"], ""
     stored = _stored_token(cfg)
     if stored:
         if _lasts_the_session(auto, stored):
-            print(f"  ♻  Purana token 15:30 tak valid hai — wahi use kar raha hoon")
+            print(f"  ♻  Old token is valid till 15:30 — reusing it")
             return cfg["client_id"], stored
         if auto.is_token_valid(stored):
-            print(f"  ⚠  Purana token 15:30 se pehle expire ho jayega — "
-                  f"use nahi kar raha, aadha din baad girta.")
+            print(f"  ⚠  Old token expires before 15:30 — not using it, it would "
+                  f"drop the feed halfway through the day.")
         else:
-            print(f"  ⚠  Purana token bhi expired hai.")
+            print(f"  ⚠  The old token has expired too.")
     else:
-        print(f"  ⚠  Disk pe koi purana token nahi mila.")
+        print(f"  ⚠  No previous token found on disk.")
     #  No usable token.  Empty string, and every caller treats that as fatal:
     #  ensure_feed() returns None and main() exits.  Starting without one only
     #  buys a page that cannot update.
@@ -311,13 +311,13 @@ def check_data_access(client_id: str, token: str,
         txt = r.text[:200]
         if "806" in txt:
             return REFUSED, ("Data APIs not Subscribed — is account ka Dhan Data "
-                             "API add-on active nahi hai.  Dhan web -> Profile "
-                             "-> DhanHQ APIs se subscribe karo, ya dhan_feed."
+                             "the Data API add-on is not active.  Dhan web -> Profile "
+                             "-> DhanHQ APIs to subscribe, or dhan_feed."
                              "FEED_ACCOUNT doosre account pe rakho.")
         if "808" in txt:
-            return REFUSED, "token invalid/superseded — naya token chahiye"
+            return REFUSED, "token invalid/superseded — a fresh one is needed"
         return REFUSED, f"HTTP {r.status_code}: {txt}"
-    return UNREACHABLE, f"Dhan tak pahunch nahi paaya ({last})"
+    return UNREACHABLE, f"could not reach Dhan ({last})"
 
 
 def ensure_feed(account: str = None) -> "tuple[str, str] | None":
@@ -335,24 +335,24 @@ def ensure_feed(account: str = None) -> "tuple[str, str] | None":
     account = account or FEED_ACCOUNT
     cid, token = get_token(account)
     if not token:
-        print(f"  ❌ {account} ({cid}) ka token nahi mila.")
+        print(f"  ❌ No token found for {account} ({cid}).")
         return None
     verdict, msg = check_data_access(cid, token)
     if verdict == REFUSED and "token" in msg:
-        print(f"  🔑 {msg} — naya bana raha hoon...")
+        print(f"  🔑 {msg} — generating a fresh one...")
         cid, token = get_token(account, force_new=True)
         verdict, msg = (check_data_access(cid, token) if token
                         else (REFUSED, msg))
     if verdict == REFUSED:
-        print(f"\n  ❌ FEED NAHI CHALEGA — {account} ({cid})")
+        print(f"\n  ❌ FEED WILL NOT RUN — {account} ({cid})")
         print(f"     {msg}")
-        print(f"     Socket khulega phir band ho jayega, isliye connect nahi "
-              f"kar raha.\n")
+        print(f"     The socket would open and then close, so it is not "
+              f"being connected.\n")
         return None
     if verdict == UNREACHABLE:
-        print(f"  ⚠  {account} ({cid}) — preflight nahi ho paaya: {msg}")
-        print(f"     Ye subscription ka jawaab NAHI hai, sirf network hai — "
-              f"aage badh raha hoon.")
+        print(f"  ⚠  {account} ({cid}) — preflight could not run: {msg}")
+        print(f"     That is a network answer, NOT a subscription one — "
+              f"continuing.")
         return cid, token
     print(f"  🔑 Feed account {account} ({cid}) — data access OK")
     return cid, token
@@ -383,7 +383,7 @@ def _report(allow_login: bool) -> None:
         try:
             auto = _load_module(cfg["module_dir"], "auto_login")
         except Exception as e:
-            print(f"  {name:<15} {'?':<12}  auto_login.py load nahi hua: {e}")
+            print(f"  {name:<15} {'?':<12}  auto_login.py failed to load: {e}")
             continue
         cid = getattr(auto, "DHAN_CLIENT_ID", "") or cfg["client_id"] or "?"
 
@@ -399,13 +399,13 @@ def _report(allow_login: bool) -> None:
             if tok and not auto.is_token_valid(tok):
                 tok = ""
         if not tok:
-            print(f"  {name:<15} {cid:<12}  koi valid token nahi — "
+            print(f"  {name:<15} {cid:<12}  no valid token — "
                   f"`python dhan_feed.py --login` se banega")
             continue
 
         if tok in checked:
             verdict, msg = checked[tok]
-            note += "  (wahi token, dobara nahi poocha)"
+            note += "  (same token, not re-checked)"
         else:
             if checked:
                 time.sleep(1.5)          # be gentle with the per-account limit

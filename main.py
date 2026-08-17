@@ -3,7 +3,7 @@
 #
 #      python main.py                  sab kuch, ek command
 #      python main.py --no-browser
-#      python main.py --no-update      5-min DB refresh skip karo
+#      python main.py --no-update      skip the 5-min DB refresh
 #      python main.py --no-tunnel      public ngrok link mat banao
 #      python main.py --snapshot       one REST snapshot, serve it, no socket
 #      python main.py --fresh          ignore today's prev-close cache
@@ -88,9 +88,8 @@ def publisher(feed: "heatmap_ws.HeatmapFeed", stop: threading.Event) -> None:
 def main() -> int:
     argv = sys.argv[1:]
     port = int(_arg("--port", config.PORT))
-    #  "Aaj" ka matlab yahan JO SESSION DIKH RAHA HAI — Itwaar ko wo
-    #  Friday hai.  Ye ek line prev_close aur cache ka naam, dono tay
-    #  karti hai.
+    #  "Today" here means THE SESSION ON SCREEN — on a Sunday that is
+    #  Friday. This one line decides both prev_close and the cache name.
     today = nse_holidays.session_day()
 
     print("=" * 74)
@@ -100,7 +99,7 @@ def main() -> int:
     # 1 ── universe (scrip master: once a day, validated)
     stocks = universe.load()
     if not stocks:
-        print("  ❌ Universe khaali hai — scrip master check karo.")
+        print("  ❌ Universe is empty — check the scrip master.")
         return 1
     for s in stocks:
         s["sector"] = sectors.of(s["symbol"])
@@ -145,13 +144,13 @@ def main() -> int:
         if url:
             print(f"  🔗 Public link    →  {url}")
             print(f"     (kisi bhi network se chalega — PUBLIC hai, "
-                  f"share mat karna)")
-    print(f"  💡 Kisi bhi tile pe click karo → 5-min TradingView chart\n")
+                  f"do not share it)")
+    print(f"  💡 Click any tile → 5-min TradingView chart\n")
     if "--no-browser" not in argv:
         fe.open_browser(port)
 
     if "--snapshot" in argv:
-        print("  --snapshot: socket nahi khol raha.  Ctrl-C se band karo.\n")
+        print("  --snapshot: not opening the socket.  Ctrl-C to stop.\n")
         fe.set_status("Snapshot only (feed off)", live=False)
         try:
             while True:
@@ -181,8 +180,8 @@ def main() -> int:
 
     if feed.feed_failed:
         fe.set_status("Feed unavailable — snapshot only", live=False)
-        print("\n  ⚠  Feed nahi chala.  Page abhi bhi khula hai (snapshot ke "
-              "saath).  Ctrl-C se band karo.\n")
+        print("\n  ⚠  The feed did not start.  The page is still up (with the "
+              "snapshot).  Ctrl-C to stop.\n")
         try:
             while True:
                 time.sleep(1)
@@ -192,7 +191,7 @@ def main() -> int:
 
     fe.set_status("Market band — aakhri prices", live=False)
     print(f"\n  Done — {feed.ticks} ticks, {len(feed.seen)} stocks.  "
-          f"Page khula hai, Ctrl-C se band karo.\n")
+          f"The page is up, Ctrl-C to stop.\n")
     try:
         while True:
             time.sleep(1)

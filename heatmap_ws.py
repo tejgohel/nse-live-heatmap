@@ -168,7 +168,7 @@ class HeatmapFeed:
         wait = (target - n).total_seconds()
         print(f"  ⏳ [{_now()}] Market 09:15 pe khulega — "
               f"{int(wait // 60)}m {int(wait % 60)}s wait "
-              f"(map already ready hai, page abhi bhi khula hai).")
+              f"(the map is already built, and the page stays up).")
         while not self._stop.is_set():
             n = datetime.now()
             if (n.hour * 60 + n.minute) >= config.MARKET_OPEN_MIN:
@@ -178,14 +178,14 @@ class HeatmapFeed:
                 print(f"     ... {int(left // 60)}m baaki")
             time.sleep(min(poll, max(0.5, left)))
         if not self._stop.is_set():
-            print(f"  🔔 [{_now()}] Market khul gaya — connect kar raha hoon.")
+            print(f"  🔔 [{_now()}] Market has opened — connecting.")
 
         #  Started after the close (or on a weekend): the seeded snapshot is
         #  already the day's final picture, so opening a socket would connect,
         #  be stopped by the watchdog seconds later, and change nothing.
         if self._past_end():
-            print(f"  ⏸  [{_now()}] Market band hai — socket nahi khol raha, "
-                  f"page pe aaj ke aakhri bhaav hain.")
+            print(f"  ⏸  [{_now()}] Market is closed — not opening the socket, "
+                  f"the page shows the last prices of the session.")
             self._stop.set()
             return
         cred = self.cred or dhan_feed.ensure_feed()
@@ -256,7 +256,7 @@ class HeatmapFeed:
         while not self._stop.is_set():
             if self._past_end():
                 print(f"  🔔 [{_now()}] {config.SCAN_END[0]:02d}:"
-                      f"{config.SCAN_END[1]:02d} — market band, feed ruk raha hai.")
+                      f"{config.SCAN_END[1]:02d} — market closed, stopping the feed.")
                 self.stop()
                 return
             time.sleep(10)
@@ -280,7 +280,7 @@ class HeatmapFeed:
                 "InstrumentList": [{"ExchangeSegment": NSE_EQ_CODE,
                                     "SecurityId": s} for s in chunk]}))
             time.sleep(0.05)
-        print(f"  👀 [{_now()}] live — heatmap update ho raha hai\n")
+        print(f"  👀 [{_now()}] live — the heatmap is updating\n")
 
     def _on_message(self, ws, message):
         if isinstance(message, str):
