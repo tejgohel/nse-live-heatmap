@@ -14,9 +14,7 @@ candles_5min.db
 *.db
 *.db-shm
 *.db-wal
-_prevclose_*.json
-_universe.json
-_scripmaster.json
+_*.json
 _chartprofile/
 *.log
 logs/
