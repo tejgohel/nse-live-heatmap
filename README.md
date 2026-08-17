@@ -46,13 +46,17 @@ A treemap of the whole NSE derivatives universe — around 200 stocks — colour
 
 Tiles carry the symbol and change%, auto-fitted: the renderer sizes the text for one line and for two, then keeps whichever is bigger, so short names stay large and long ones stay readable instead of clipping.
 
-**Flat — the whole universe at once**
+**Sized by turnover** — the tile is as big as the money that moved through it, so a ₹20 stock and a ₹4,000 one are finally comparable.
 
-![All 208 F&O stocks in one flat treemap](docs/heatmap-full.jpg)
+![The F&O universe as a treemap, tiles sized by turnover](docs/heatmap-turnover.png)
 
-**Filtered to one sector**
+**Sized by move** — the same map re-proportioned so the day's biggest movers take the space.
 
-![Consumer durables only, tiles expanded to fill the screen](docs/heatmap-sector-filter.jpg)
+![The same map, tiles sized by absolute change](docs/heatmap-move.png)
+
+**Filtered to one sector** — tiles expand to fill the screen.
+
+![Consumer durables only](docs/heatmap-sector-filter.jpg)
 
 ---
 
