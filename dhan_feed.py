@@ -149,11 +149,9 @@ def _persist_token(cfg: dict, auto, token: str) -> str:
             where.append(os.path.basename(cfg["token_file"]))
         except Exception as e:
             print(f"  ⚠  token file likhne me dikkat: {e}")
-    try:
-        if auto.save_token_to_config(token):
-            where.append("config.py")
-    except Exception as e:
-        print(f"  ⚠  config.py update nahi hua: {e}")
+    #  Deliberately NOT written into config.py: that file is tracked by git,
+    #  and a token committed once is a token leaked forever. The cache file
+    #  above is git-ignored, which is where a secret belongs.
     return ", ".join(where) if where else "kahin nahi (save fail)"
 
 
