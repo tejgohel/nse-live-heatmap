@@ -325,7 +325,7 @@ _HTML = r"""<!doctype html><html><head><meta charset="utf-8">
  <h1>NSE <em>F&amp;O</em> Heatmap</h1>
  <span class="pill"><span id="dot" class="dot"></span><span id="status">Starting...</span></span>
  <span class="pill">▲ <span id="nup" class="up">0</span> &nbsp;▼ <span id="ndn" class="dn">0</span></span>
- <input id="q" placeholder="symbol dhundo...">
+ <input id="q" placeholder="SEARCH SYMBOLS...">
  <select id="sec"><option value="">All sectors</option></select>
  <select id="size">
   <option value="equal">Size: Equal</option>
@@ -766,7 +766,6 @@ function paint(el, r, darkKey){
   //  writing r.symbol here would undo the split on every update.
   if(el._pct !== pct){ el.querySelector('.p').textContent = pct; el._pct = pct; }
 
-  }
   el.title = r.symbol + '  ' + pct + '\n' +
      'LTP ' + (r.ltp==null?'—':r.ltp) + '   prev ' + (r.prev_close==null?'—':r.prev_close) +
      '\nO ' + (r.open==null?'—':r.open) + '  H ' + (r.high==null?'—':r.high) +
